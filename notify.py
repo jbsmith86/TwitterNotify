@@ -3,18 +3,24 @@ import requests
 import urllib
 import urllib2
 import json
-from requests_oauthlib import OAuth1
+import time
 from requests_oauthlib import OAuth1
 from urlparse import parse_qs
 
+#Sendhub info
 SENDHUB_API_KEY = ""
 SENDHUB_USERNAME = ""
 SENDHUB_CONTACT = ""
 
+#Twitter/Oauth keys
 OAUTH_TOKEN = ""
 OAUTH_TOKEN_SECRET = ""
 OAUTH_CONSUMER_KEY = ""
 OAUTH_CONSUMER_SECRET = ""
+
+#filepath constants
+WORDLIST_FILEPATH = "words.list"
+LASTID_FILEPATH = "lastid.txt"
 
 def setup_oauth():
     """Authorize your app via identifier."""
@@ -52,28 +58,56 @@ def get_oauth():
                 resource_owner_secret=OAUTH_TOKEN_SECRET)
     return oauth
 
-def setup_list(filepath):
-		newfile = open(filepath, 'U')
-		wordlist = newfile.read().splitlines()
-		return [i.lower() for i in wordlist]
+def get_wordlist(filepath):
+    newfile = open(filepath, 'U')
+    wordlist = newfile.read().splitlines()
+    return [i.lower() for i in wordlist]
 
+def get_lastid(filepath):
+    idfile = open(filepath, 'r')
+    lastid = idfile.read()
+    idfile.close()
+    return long(lastid)
+
+def save_lastid(lastid, filepath):
+    idfile = open(filepath, 'w')
+    idfile.write(str(lastid) + '\n')
+    idfile.close()
+
+def get_tweets_since(lastid):
+    oauth = get_oauth()
+    url = "https://api.twitter.com/1.1/statuses/home_timeline.json"
+    params = {'since_id' : lastid}
+    return requests.get(url, auth=oauth, params=params).json()
+
+def get_inital_tweets():
+    oauth = get_oauth()
+    url = "https://api.twitter.com/1.1/statuses/home_timeline.json"
+    return requests.get(url, auth=oauth).json()
 
 def send_text_msg(msg):
-	request = urllib2.build_opener()
-	returnedpage = request.open('https://api.sendhub.com/v1/contacts/?username=' + SENDHUB_USERNAME + '&api_key=' + SENDHUB_API_KEY).read()
-	contactid = str(json.loads(returnedpage)['objects'][0]['id'])
-	jsonmsg = json.dumps({ 'contacts' : contactid, 'text' : msg })
-	responsecode = requests.post('https://api.sendhub.com/v1/messages/', params={'api_key': SENDHUB_API_KEY, 'username': SENDHUB_USERNAME}, data=json.dumps({'contacts': [SENDHUB_CONTACT],'text': msg}), headers={'content-type': 'application/json'})
+    request = urllib2.build_opener()
+    returnedpage = request.open('https://api.sendhub.com/v1/contacts/?username=' + SENDHUB_USERNAME + '&api_key=' + SENDHUB_API_KEY).read()
+    contactid = str(json.loads(returnedpage)['objects'][0]['id'])
+    jsonmsg = json.dumps({ 'contacts' : contactid, 'text' : msg })
+    responsecode = requests.post('https://api.sendhub.com/v1/messages/', params={'api_key': SENDHUB_API_KEY, 'username': SENDHUB_USERNAME}, data=json.dumps({'contacts': [SENDHUB_CONTACT],'text': msg}), headers={'content-type': 'application/json'})
 
 if  __name__ =='__main__':
-	oauth = get_oauth()
-	url = "https://api.twitter.com/1.1/statuses/home_timeline.json"
-	jsontimeline = requests.get(url, auth=oauth).json()
-	alertwords = setup_list('words.list')
-	for tweet in jsontimeline:
-		try:
-			for word in alertwords:
-				if word in tweet.lower():
-					send_text_msg(tweet['user']['screen_name'].encode('utf-8') + " - " + tweet['text'].encode('utf-8'))
-		except:
-			pass
+
+    try:
+        jsontimeline = get_tweets_since(get_lastid(LASTID_FILEPATH))
+    except IOError:
+        jsontimeline = get_inital_tweets()
+
+    while(True):
+        alertwords = get_wordlist(WORDLIST_FILEPATH)
+        for tweet in jsontimeline:
+            try:
+                for word in alertwords:
+                    if word.lower() in tweet['text'].encode('utf-8').lower():
+                        send_text_msg(tweet['user']['screen_name'].encode('utf-8') + " - " + tweet['text'].encode('utf-8'))
+            except:
+                pass
+        save_lastid(jsontimeline[0]['id'])
+        time.sleep(90)
+        jsontimeline = get_tweets_since(get_lastid(LASTID_FILEPATH))
