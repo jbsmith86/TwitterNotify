@@ -108,6 +108,9 @@ if  __name__ =='__main__':
                         send_text_msg(tweet['user']['screen_name'].encode('utf-8') + " - " + tweet['text'].encode('utf-8'))
             except:
                 pass
-        save_lastid(jsontimeline[0]['id'])
+        try:
+			save_lastid(jsontimeline[0]['id'], LASTID_FILEPATH)
+		except IndexError:
+			pass
         time.sleep(90)
         jsontimeline = get_tweets_since(get_lastid(LASTID_FILEPATH))
