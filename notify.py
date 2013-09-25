@@ -109,7 +109,7 @@ if  __name__ =='__main__':
             try:
                 for word in alertwords:
                     if word.lower() in tweet['text'].encode('utf-8').lower():
-                        if tweet['user']['screen_name'].encode('utf-8') not in alertwords:
+                        if tweet['user']['screen_name'].encode('utf-8') not in excludedusers:
                             send_text_msg(tweet['user']['screen_name'].encode('utf-8') + " - " + tweet['text'].encode('utf-8'))
             except:
                 pass
