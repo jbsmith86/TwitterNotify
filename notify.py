@@ -21,6 +21,7 @@ OAUTH_CONSUMER_SECRET = ""
 #filepath constants
 WORDLIST_FILEPATH = "words.list"
 LASTID_FILEPATH = "lastid.txt"
+EXCLUDE_USERLIST_FILEPATH = "exclude.txt"
 
 def setup_oauth():
     """Authorize your app via identifier."""
@@ -58,7 +59,7 @@ def get_oauth():
                 resource_owner_secret=OAUTH_TOKEN_SECRET)
     return oauth
 
-def get_wordlist(filepath):
+def get_list(filepath):
     newfile = open(filepath, 'U')
     wordlist = newfile.read().splitlines()
     return [i.lower() for i in wordlist]
@@ -99,18 +100,22 @@ if  __name__ =='__main__':
     except IOError:
         jsontimeline = get_inital_tweets()
 
+    alertwords = get_list(WORDLIST_FILEPATH)
+    excludedusers = get_list(EXCLUDE_USERLIST_FILEPATH)
+
     while(True):
-        alertwords = get_wordlist(WORDLIST_FILEPATH)
+        
         for tweet in jsontimeline:
             try:
                 for word in alertwords:
                     if word.lower() in tweet['text'].encode('utf-8').lower():
-                        send_text_msg(tweet['user']['screen_name'].encode('utf-8') + " - " + tweet['text'].encode('utf-8'))
+                        if tweet['user']['screen_name'].encode('utf-8') not in alertwords:
+                            send_text_msg(tweet['user']['screen_name'].encode('utf-8') + " - " + tweet['text'].encode('utf-8'))
             except:
                 pass
         try:
-			save_lastid(jsontimeline[0]['id'], LASTID_FILEPATH)
-		except IndexError:
-			pass
+            save_lastid(jsontimeline[0]['id'], LASTID_FILEPATH)
+        except IndexError:
+            pass
         time.sleep(90)
         jsontimeline = get_tweets_since(get_lastid(LASTID_FILEPATH))
