@@ -21,3 +21,5 @@ pip install requests_oauthlib
 ```
 
 Create a text file with a list of words you would like to track and rename or "words.list" or change the WORDLIST_FILEPATH constant to your filename
+
+Optionally you can add a text file named "exclude.txt" with Twitter usernames you would like to exclude from tracking.
